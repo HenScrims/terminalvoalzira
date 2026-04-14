@@ -1,0 +1,683 @@
+import React, { useMemo, useState } from "react";
+import { motion } from "framer-motion";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import {
+  Bell,
+  ChefHat,
+  Clock3,
+  ClipboardList,
+  MessageSquare,
+  Package,
+  Plus,
+  Search,
+  Send,
+  Timer,
+  TrendingUp,
+  BookOpen,
+  CheckCircle2,
+} from "lucide-react";
+
+const initialRecipes = [
+  {
+    id: 1,
+    name: "Bolo de Cenoura",
+    category: "Tradicional",
+    prepMinutes: 28,
+    yield: "1 unidade",
+    ingredients: ["Massa pronta / receita padrão", "Cobertura de chocolate", "Embalagem padrão"],
+    steps: [
+      "Separar insumos da receita.",
+      "Preparar massa conforme ficha técnica.",
+      "Assar no tempo padrão.",
+      "Aplicar cobertura e finalizar embalagem.",
+    ],
+  },
+  {
+    id: 2,
+    name: "Bolo de Fubá",
+    category: "Caseiro",
+    prepMinutes: 24,
+    yield: "1 unidade",
+    ingredients: ["Mistura base", "Erva-doce opcional", "Embalagem padrão"],
+    steps: [
+      "Separar insumos da receita.",
+      "Misturar conforme ficha técnica.",
+      "Assar e resfriar.",
+      "Embalar e registrar produção.",
+    ],
+  },
+  {
+    id: 3,
+    name: "Bolo de Chocolate",
+    category: "Mais vendido",
+    prepMinutes: 31,
+    yield: "1 unidade",
+    ingredients: ["Mistura chocolate", "Cobertura", "Etiqueta do dia"],
+    steps: [
+      "Separar ingredientes.",
+      "Executar mistura padrão.",
+      "Assar e conferir ponto.",
+      "Finalizar, etiquetar e embalar.",
+    ],
+  },
+];
+
+const initialOrders = [
+  {
+    id: "OP-1041",
+    recipeId: 3,
+    recipeName: "Bolo de Chocolate",
+    quantity: 3,
+    priority: "Alta",
+    createdAt: "08:10",
+    status: "Aguardando",
+    notes: "Produzir para loja e reserva do balcão.",
+  },
+  {
+    id: "OP-1042",
+    recipeId: 1,
+    recipeName: "Bolo de Cenoura",
+    quantity: 2,
+    priority: "Média",
+    createdAt: "08:25",
+    status: "Em produção",
+    notes: "Reposição de vitrine até 11h.",
+    startedAt: Date.now() - 1000 * 60 * 18,
+  },
+];
+
+const priorityStyle = {
+  Baixa: "bg-[#F7E7A8] text-[#7A4B1F] border border-[#E8C96E]",
+  Média: "bg-[#F6C9A6] text-[#7A3B1C] border border-[#E8A06C]",
+  Alta: "bg-[#E8A3B3] text-[#6D2340] border border-[#D97F96]",
+};
+
+const brand = {
+  page: "bg-[#FFF8F1]",
+  card: "bg-white",
+  soft: "bg-[#FFF1E4]",
+  softAlt: "bg-[#FDF4EC]",
+  line: "border-[#F1D6BF]",
+  title: "text-[#8C3B2A]",
+  text: "text-[#6B4A3A]",
+  muted: "text-[#A06A52]",
+  accent: "bg-[#D97C5F]",
+  accentHover: "hover:bg-[#C86C50]",
+  accentText: "text-white",
+  darkBadge: "bg-[#8C3B2A] text-white",
+};
+
+const statusStyle = {
+  Aguardando: "secondary",
+  "Em produção": "default",
+  Finalizado: "outline",
+};
+
+function formatMinutes(totalSeconds) {
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  return `${mins}m ${secs}s`;
+}
+
+export default function PrototipoCozinhaVoAlzira() {
+  const [recipes] = useState(initialRecipes);
+  const [orders, setOrders] = useState(initialOrders);
+  const [messages, setMessages] = useState([
+    { id: 1, from: "Administrador", text: "Bom dia. Prioridade maior para os bolos de chocolate.", time: "08:00" },
+    { id: 2, from: "Cozinha", text: "Recebido. Vamos iniciar após o primeiro ciclo do forno.", time: "08:04" },
+  ]);
+  const [selectedRecipe, setSelectedRecipe] = useState(initialRecipes[0]);
+  const [search, setSearch] = useState("");
+  const [newMessage, setNewMessage] = useState("");
+  const [newOrder, setNewOrder] = useState({ recipeId: "3", quantity: "1", priority: "Média", notes: "" });
+  const [now, setNow] = useState(Date.now());
+  const [viewMode, setViewMode] = useState("adm");
+
+  React.useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const filteredRecipes = useMemo(() => {
+    return recipes.filter(
+      (r) =>
+        r.name.toLowerCase().includes(search.toLowerCase()) ||
+        r.category.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [recipes, search]);
+
+  const metrics = useMemo(() => {
+    const waiting = orders.filter((o) => o.status === "Aguardando").length;
+    const producing = orders.filter((o) => o.status === "Em produção").length;
+    const finished = orders.filter((o) => o.status === "Finalizado").length;
+    const totalCakes = orders.reduce((acc, o) => acc + o.quantity, 0);
+    return { waiting, producing, finished, totalCakes };
+  }, [orders]);
+
+  const productivityPercent = Math.min(100, Math.round((metrics.finished / Math.max(1, orders.length)) * 100));
+
+  const adminMessages = messages;
+  const kitchenMessages = messages;
+
+  const createOrder = () => {
+    const recipe = recipes.find((r) => String(r.id) === newOrder.recipeId);
+    if (!recipe) return;
+
+    const nowTime = new Date().toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const nextOrder = {
+      id: `OP-${Math.floor(1000 + Math.random() * 9000)}`,
+      recipeId: recipe.id,
+      recipeName: recipe.name,
+      quantity: Number(newOrder.quantity),
+      priority: newOrder.priority,
+      createdAt: nowTime,
+      status: "Aguardando",
+      notes: newOrder.notes || "Sem observações.",
+    };
+
+    setOrders((prev) => [nextOrder, ...prev]);
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: prev.length + 1,
+        from: "Administrador",
+        text: `Nova ordem enviada: ${recipe.name} x${Number(newOrder.quantity)}.`,
+        time: nowTime,
+      },
+    ]);
+    setNewOrder({ recipeId: newOrder.recipeId, quantity: "1", priority: "Média", notes: "" });
+  };
+
+  const sendMessage = () => {
+    if (!newMessage.trim()) return;
+
+    const from = viewMode === "adm" ? "Administrador" : "Cozinha";
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: prev.length + 1,
+        from,
+        text: newMessage,
+        time: new Date().toLocaleTimeString("pt-BR", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      },
+    ]);
+    setNewMessage("");
+  };
+
+  const startProduction = (orderId) => {
+    setOrders((prev) =>
+      prev.map((order) =>
+        order.id === orderId
+          ? { ...order, status: "Em produção", startedAt: Date.now() }
+          : order
+      )
+    );
+  };
+
+  const finishProduction = (orderId) => {
+    setOrders((prev) =>
+      prev.map((order) =>
+        order.id === orderId
+          ? { ...order, status: "Finalizado", finishedAt: Date.now() }
+          : order
+      )
+    );
+  };
+
+  return (
+    <div className={`min-h-screen ${brand.page} p-4 md:p-6 font-serif`}>
+      <div className="mx-auto max-w-7xl space-y-6">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="grid gap-4 md:grid-cols-[1.4fr_0.8fr]"
+        >
+          <Card className={`rounded-2xl shadow-sm border-0 ${brand.card}`}>
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className={`mb-2 flex items-center gap-2 text-sm ${brand.muted}`}>
+                    <ChefHat className="h-4 w-4" />
+                    {viewMode === "adm" ? "Painel administrativo da produção" : "Painel operacional da cozinha"}
+                  </div>
+                  <h1 className={`text-3xl font-semibold tracking-tight ${brand.title}`}>
+                    Fábrica de Bolo Vó Alzira
+                  </h1>
+                  <p className={`mt-2 text-sm ${brand.text}`}>
+                    {viewMode === "adm"
+                      ? "Interface do administrador para criar produções, acompanhar mensagens e visualizar produtividade."
+                      : "Interface da cozinha para acompanhar a fila de produção, consultar receitas e responder mensagens."}
+                  </p>
+                </div>
+                <div className="flex flex-col items-end gap-3">
+                  <div className={`rounded-2xl ${brand.darkBadge} px-4 py-3 text-right shadow-sm`}>
+                    <div className="text-xs uppercase tracking-wide text-white/80">Modo provisório</div>
+                    <div className="mt-1 text-lg font-semibold">{viewMode === "adm" ? "Administrador" : "Cozinha"}</div>
+                  </div>
+                  <div className={`flex items-center gap-2 rounded-2xl ${brand.card} border ${brand.line} p-1 shadow-sm`}>
+                    <Button
+                      type="button"
+                      onClick={() => setViewMode("adm")}
+                      className={`rounded-xl px-4 ${
+                        viewMode === "adm"
+                          ? `${brand.accent} ${brand.accentHover} ${brand.accentText}`
+                          : `bg-transparent ${brand.title} hover:bg-[#F6E3D3] shadow-none`
+                      }`}
+                    >
+                      ADM
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => setViewMode("kitchen")}
+                      className={`rounded-xl px-4 ${
+                        viewMode === "kitchen"
+                          ? `${brand.accent} ${brand.accentHover} ${brand.accentText}`
+                          : `bg-transparent ${brand.title} hover:bg-[#F6E3D3] shadow-none`
+                      }`}
+                    >
+                      COZINHA
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className={`rounded-2xl shadow-sm border-0 ${brand.card}`}>
+            <CardContent className="grid grid-cols-2 gap-3 p-4">
+              <MetricCard icon={<ClipboardList className="h-4 w-4" />} label="Ordens" value={String(orders.length)} />
+              <MetricCard icon={<Package className="h-4 w-4" />} label="Bolos" value={String(metrics.totalCakes)} />
+              <MetricCard icon={<Timer className="h-4 w-4" />} label="Produzindo" value={String(metrics.producing)} />
+              <MetricCard icon={<TrendingUp className="h-4 w-4" />} label="Concluído" value={`${productivityPercent}%`} />
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {viewMode === "adm" ? (
+          <div className="space-y-6">
+            <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
+              <Card className={`rounded-2xl border-0 shadow-sm ${brand.card}`}>
+                <CardHeader>
+                  <CardTitle className={`flex items-center gap-2 text-lg ${brand.title}`}>
+                    <Plus className="h-5 w-5" />
+                    Nova ordem de produção
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <label className={`mb-2 block text-sm font-medium ${brand.text}`}>Bolo</label>
+                      <Select
+                        value={newOrder.recipeId}
+                        onValueChange={(value) => setNewOrder((prev) => ({ ...prev, recipeId: value }))}
+                      >
+                        <SelectTrigger className={`rounded-xl border ${brand.line}`}>
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {recipes.map((recipe) => (
+                            <SelectItem key={recipe.id} value={String(recipe.id)}>
+                              {recipe.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className={`mb-2 block text-sm font-medium ${brand.text}`}>Quantidade</label>
+                      <Input
+                        className={`rounded-xl border ${brand.line} focus-visible:ring-[#D97C5F]`}
+                        type="number"
+                        min="1"
+                        value={newOrder.quantity}
+                        onChange={(e) => setNewOrder((prev) => ({ ...prev, quantity: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className={`mb-2 block text-sm font-medium ${brand.text}`}>Prioridade</label>
+                    <Select
+                      value={newOrder.priority}
+                      onValueChange={(value) => setNewOrder((prev) => ({ ...prev, priority: value }))}
+                    >
+                      <SelectTrigger className={`rounded-xl border ${brand.line}`}>
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Baixa">Baixa</SelectItem>
+                        <SelectItem value="Média">Média</SelectItem>
+                        <SelectItem value="Alta">Alta</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className={`mb-2 block text-sm font-medium ${brand.text}`}>Observações</label>
+                    <Textarea
+                      className={`min-h-[100px] rounded-xl border ${brand.line} focus-visible:ring-[#D97C5F]`}
+                      placeholder="Ex.: repor vitrine, separar para encomenda, pedido urgente..."
+                      value={newOrder.notes}
+                      onChange={(e) => setNewOrder((prev) => ({ ...prev, notes: e.target.value }))}
+                    />
+                  </div>
+
+                  <Button
+                    className={`w-full rounded-xl ${brand.accent} ${brand.accentHover} ${brand.accentText}`}
+                    onClick={createOrder}
+                  >
+                    Enviar ordem para cozinha
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className={`rounded-2xl border-0 shadow-sm ${brand.card}`}>
+                <CardHeader>
+                  <CardTitle className={`flex items-center gap-2 text-lg ${brand.title}`}>
+                    <MessageSquare className="h-5 w-5" />
+                    Comunicação rápida
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <ScrollArea className={`h-[300px] rounded-xl border ${brand.line} ${brand.softAlt} p-4`}>
+                    <div className="space-y-3">
+                      {adminMessages.map((message) => (
+                        <div key={message.id} className={`rounded-2xl ${brand.card} p-3 shadow-sm border ${brand.line}`}>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className={`text-sm font-medium ${brand.title}`}>{message.from}</span>
+                            <span className={`text-xs ${brand.muted}`}>{message.time}</span>
+                          </div>
+                          <p className={`mt-1 text-sm ${brand.text}`}>{message.text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                  <div className="flex gap-2">
+                    <Input
+                      className={`rounded-xl border ${brand.line} focus-visible:ring-[#D97C5F]`}
+                      placeholder="Digite um recado para a cozinha"
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                    />
+                    <Button className={`rounded-xl ${brand.accent} ${brand.accentHover} ${brand.accentText}`} onClick={sendMessage}>
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-3">
+              <Card className={`rounded-2xl border-0 shadow-sm lg:col-span-2 ${brand.card}`}>
+                <CardHeader>
+                  <CardTitle className={`flex items-center gap-2 text-lg ${brand.title}`}>
+                    <TrendingUp className="h-5 w-5" />
+                    Produtividade
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <MetricLarge title="Aguardando" value={metrics.waiting} subtitle="Ordens na fila" />
+                    <MetricLarge title="Em produção" value={metrics.producing} subtitle="Ordens ativas" />
+                    <MetricLarge title="Finalizadas" value={metrics.finished} subtitle="Ordens concluídas" />
+                  </div>
+                  <div>
+                    <div className={`mb-2 flex items-center justify-between text-sm ${brand.text}`}>
+                      <span>Produtividade do fluxo</span>
+                      <span>{productivityPercent}%</span>
+                    </div>
+                    <Progress value={productivityPercent} className="h-3" />
+                  </div>
+                  <div className={`rounded-2xl ${brand.softAlt} p-4 text-sm ${brand.text} border ${brand.line}`}>
+                    O administrador acompanha a produção do dia, visualiza o andamento geral e identifica gargalos com base no fluxo da cozinha.
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className={`rounded-2xl border-0 shadow-sm ${brand.card}`}>
+                <CardHeader>
+                  <CardTitle className={`text-lg ${brand.title}`}>Visão rápida</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  <AlertItem text="Use o modo ADM para criar e organizar a demanda do dia." />
+                  <AlertItem text="As mensagens enviadas aqui aparecem para a cozinha." />
+                  <AlertItem text="A produtividade mostra o avanço geral das ordens." />
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <div className="grid gap-6 xl:grid-cols-[1.4fr_0.8fr]">
+              <Card className={`rounded-2xl border-0 shadow-sm ${brand.card}`}>
+                <CardHeader>
+                  <CardTitle className={`flex items-center gap-2 text-lg ${brand.title}`}>
+                    <Bell className="h-5 w-5" />
+                    Cozinha
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {orders.map((order) => {
+                    const seconds = order.startedAt ? Math.max(0, Math.floor((now - order.startedAt) / 1000)) : 0;
+                    return (
+                      <div key={order.id} className={`rounded-2xl border ${brand.line} ${brand.card} p-4 shadow-sm`}>
+                        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className={`text-lg font-semibold ${brand.title}`}>{order.recipeName}</h3>
+                              <Badge variant={statusStyle[order.status] || "secondary"}>{order.status}</Badge>
+                              <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${priorityStyle[order.priority]}`}>
+                                {order.priority}
+                              </span>
+                            </div>
+                            <p className={`mt-2 text-sm ${brand.text}`}>
+                              Ordem {order.id} • Quantidade: {order.quantity}
+                            </p>
+                            <p className={`mt-1 text-sm ${brand.text}`}>Observação: {order.notes}</p>
+                            <div className={`mt-2 flex items-center gap-4 text-sm ${brand.muted}`}>
+                              <span className="inline-flex items-center gap-1">
+                                <Clock3 className="h-4 w-4" /> Enviado {order.createdAt}
+                              </span>
+                              {order.startedAt && (
+                                <span className="inline-flex items-center gap-1">
+                                  <Timer className="h-4 w-4" /> Tempo: {formatMinutes(seconds)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex min-w-[220px] flex-col gap-2">
+                            {order.status === "Aguardando" && (
+                              <Button
+                                className={`rounded-xl ${brand.accent} ${brand.accentHover} ${brand.accentText}`}
+                                onClick={() => startProduction(order.id)}
+                              >
+                                Fabricar
+                              </Button>
+                            )}
+                            {order.status === "Em produção" && (
+                              <Button
+                                className="rounded-xl bg-[#8C3B2A] hover:bg-[#7A3223] text-white"
+                                onClick={() => finishProduction(order.id)}
+                              >
+                                Finalizar produção
+                              </Button>
+                            )}
+                            <Button
+                              variant="outline"
+                              className={`rounded-xl border ${brand.line} ${brand.title}`}
+                              onClick={() => setSelectedRecipe(recipes.find((r) => r.id === order.recipeId) || recipes[0])}
+                            >
+                              Ver receita
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+
+              <Card className={`rounded-2xl border-0 shadow-sm ${brand.card}`}>
+                <CardHeader>
+                  <CardTitle className={`text-lg ${brand.title}`}>Comunicação</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <ScrollArea className={`h-[220px] rounded-xl border ${brand.line} ${brand.softAlt} p-4`}>
+                    <div className="space-y-3">
+                      {kitchenMessages.map((message) => (
+                        <div key={message.id} className={`rounded-2xl ${brand.card} p-3 shadow-sm border ${brand.line}`}>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className={`text-sm font-medium ${brand.title}`}>{message.from}</span>
+                            <span className={`text-xs ${brand.muted}`}>{message.time}</span>
+                          </div>
+                          <p className={`mt-1 text-sm ${brand.text}`}>{message.text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                  <div className="flex gap-2">
+                    <Input
+                      className={`rounded-xl border ${brand.line} focus-visible:ring-[#D97C5F]`}
+                      placeholder="Responder ao administrador"
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                    />
+                    <Button className={`rounded-xl ${brand.accent} ${brand.accentHover} ${brand.accentText}`} onClick={sendMessage}>
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+              <Card className={`rounded-2xl border-0 shadow-sm ${brand.card}`}>
+                <CardHeader>
+                  <CardTitle className={`flex items-center gap-2 text-lg ${brand.title}`}>
+                    <BookOpen className="h-5 w-5" />
+                    Receitas
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+                    <Input
+                      className={`rounded-xl pl-9 border ${brand.line} focus-visible:ring-[#D97C5F]`}
+                      placeholder="Buscar bolo ou categoria"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    {filteredRecipes.map((recipe) => (
+                      <button
+                        key={recipe.id}
+                        onClick={() => setSelectedRecipe(recipe)}
+                        className={`w-full rounded-2xl border ${brand.line} ${brand.card} p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:bg-[#FFF7F0]`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <div className={`font-medium ${brand.title}`}>{recipe.name}</div>
+                            <div className={`text-sm ${brand.muted}`}>{recipe.category}</div>
+                          </div>
+                          <Badge variant="outline" className={`border ${brand.line} ${brand.muted}`}>
+                            {recipe.prepMinutes} min
+                          </Badge>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className={`rounded-2xl border-0 shadow-sm ${brand.card}`}>
+                <CardHeader>
+                  <CardTitle className={`text-lg ${brand.title}`}>Ficha técnica da receita</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <h3 className={`text-2xl font-semibold ${brand.title}`}>{selectedRecipe.name}</h3>
+                    <p className={`text-sm ${brand.muted}`}>
+                      {selectedRecipe.category} • Tempo padrão: {selectedRecipe.prepMinutes} min
+                    </p>
+                  </div>
+                  <Separator />
+                  <div>
+                    <p className={`mb-2 text-sm font-medium ${brand.title}`}>Ingredientes</p>
+                    <div className="space-y-2">
+                      {selectedRecipe.ingredients.map((item, idx) => (
+                        <div key={idx} className={`rounded-xl ${brand.softAlt} px-3 py-2 text-sm ${brand.text}`}>
+                          {item}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className={`mb-2 text-sm font-medium ${brand.title}`}>Modo de preparo</p>
+                    <div className="space-y-2">
+                      {selectedRecipe.steps.map((step, idx) => (
+                        <div key={idx} className={`rounded-xl ${brand.softAlt} px-3 py-2 text-sm ${brand.text}`}>
+                          <span className="font-medium">{idx + 1}.</span> {step}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MetricCard({ icon, label, value }) {
+  return (
+    <div className={`rounded-2xl ${brand.softAlt} p-4 border ${brand.line}`}>
+      <div className={`flex items-center gap-2 text-sm ${brand.muted}`}>
+        {icon}
+        {label}
+      </div>
+      <div className={`mt-2 text-2xl font-semibold ${brand.title}`}>{value}</div>
+    </div>
+  );
+}
+
+function MetricLarge({ title, value, subtitle }) {
+  return (
+    <div className={`rounded-2xl ${brand.softAlt} p-4 border ${brand.line}`}>
+      <div className={`text-sm ${brand.muted}`}>{title}</div>
+      <div className={`mt-2 text-3xl font-semibold ${brand.title}`}>{value}</div>
+      <div className={`mt-1 text-sm ${brand.muted}`}>{subtitle}</div>
+    </div>
+  );
+}
+
+function AlertItem({ text }) {
+  return (
+    <div className={`flex items-start gap-2 rounded-2xl ${brand.softAlt} p-3 border ${brand.line}`}>
+      <CheckCircle2 className={`mt-0.5 h-4 w-4 ${brand.title}`} />
+      <span className={brand.text}>{text}</span>
+    </div>
+  );
+}
